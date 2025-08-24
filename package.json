@@ -1,0 +1,24 @@
+{
+	"name": "obsidian-anytype-sync",
+	"version": "0.0.1",
+	"description": "Comprehensive bidirectional sync between Obsidian and Anytype with intelligent wikilink conversion, property management, and knowledge graph preservation",
+	"main": "main.js",
+	"scripts": {
+		"dev": "node esbuild.config.mjs",
+		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+		"version": "node version-bump.mjs && git add manifest.json versions.json"
+	},
+	"keywords": ["obsidian", "anytype", "sync", "wikilinks", "anyblocks", "import", "export"],
+	"author": "mishachepi",
+	"license": "MIT",
+	"devDependencies": {
+		"@types/node": "^24.2.1",
+		"@typescript-eslint/eslint-plugin": "^8.39.1",
+		"@typescript-eslint/parser": "^8.39.1",
+		"builtin-modules": "3.3.0",
+		"esbuild": "^0.25.8",
+		"obsidian": "latest",
+		"tslib": "2.4.0",
+		"typescript": "^5.9.2"
+	}
+}
