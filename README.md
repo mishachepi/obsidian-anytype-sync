@@ -1,12 +1,12 @@
 # Obsidian - Anytype Sync
 
-A plugin for bidirectional synchronization between Obsidian notes and Anytype objects, preserving your knowledge graph connections across both platforms.
+A plugin for synchronization between Obsidian notes and Anytype objects.
 
 ## Overview
 
-This plugin enables seamless integration between Obsidian and Anytype, allowing you to work with your knowledge base in either environment while maintaining consistency. You can import objects from Anytype to Obsidian and sync Obsidian notes with Anytype objects. It automatically converts Anytype object links to Obsidian wikilinks, letting you harness the power of both platforms.
+This plugin enables seamless integration between Obsidian and Anytype, allowing you to work with your knowledge base. You can import objects from Anytype to Obsidian and sync Obsidian notes with Anytype objects. It automatically converts Anytype object links to Obsidian wikilinks, letting you harness the power of both platforms.
 
-**Note**: This is a pre-release version that ~~may~~ definitely contain bugs and incomplete functionality. Be carefull with your data.
+**Note**: This is like a pre-release version that ~~may~~ definitely contains some bugs and incomplete functionality. Be carefull with your data.
 
 **Developed with ClaudeCode.**
 
@@ -19,7 +19,7 @@ This plugin enables seamless integration between Obsidian and Anytype, allowing 
 You can process a single note or your entire vault. Choose which types to sync and select your target space.
 
 ### Additional Features
-- **Customizable Keys**: Modify type and property keys for better readability
+- **Update Type|Property keys**: Modify type and property keys for better readability
 
 ## Roadmap
 
@@ -30,7 +30,7 @@ You can process a single note or your entire vault. Choose which types to sync a
 - change type of Anytype object by syncing change type_key in Obsidian and sync
 - Add better multi-space support
 - Sync only selected properties (specify it in settings)
-- Security audit (seeking someone with React expertise)
+- Security audit (seeking someone with good typescript expertise)
 
 ## Installation
 
@@ -48,13 +48,12 @@ You can process a single note or your entire vault. Choose which types to sync a
 1. Download the latest release from GitHub
 2. Extract to `YourVault/.obsidian/plugins/obsidian-anytype-sync/`
 3. run `npm install` and `npm run build`
-4. nsure the folder contains `main.js`, `styles.css`, and `manifest.json`
-
+4. Ensure the folder contains `main.js`, `styles.css`, and `manifest.json`
 
 ## Setup
 
-1. **Connect**: Create API key for this plugin
-2. **Select Space**: Choose your Anytype workspace
+1. **Connect**: Click connect button and provide code, Anytype must be running
+2. **Select Space**: Choose your Anytype space
 3. **Choose Types**: Select object types to sync (pages, tasks, bookmarks, etc.)
 
 ## Usage
@@ -70,7 +69,7 @@ You can process a single note or your entire vault. Choose which types to sync a
 
 ## Configuration
 
-- **Safe Import**: Ovveride existing note content in Obsidian if disabled
+- **Safe Import**: Rewrite existing note content in Obsidian if disabled
 - **Skip system property**: Hide last_modified_by last_opened_date creator created_date
 
 
