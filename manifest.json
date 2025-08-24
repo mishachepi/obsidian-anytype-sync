@@ -3,7 +3,7 @@
 	"name": "Anytype Sync",
 	"version": "0.0.1",
 	"minAppVersion": "0.0.1",
-	"description": "Comprehensive bidirectional sync between Obsidian and Anytype with intelligent wikilink conversion, property management, and knowledge graph preservation.",
+	"description": "Synchronization between Obsidian notes and AnyType objects.",
 	"author": "mishachepi",
 	"authorUrl": "https://github.com/mishachepi",
 	"isDesktopOnly": true
