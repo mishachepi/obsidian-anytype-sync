@@ -332,6 +332,31 @@ export class SyncService {
       
       this.logger.info(`Full Import: Updating existing note: ${existingFile.basename} with fresh markdown content (${markdownContent.length} chars)`);
       await this.app.vault.process(existingFile, () => noteContent);
+      
+      // Rename file to match AnyType object name when SAFE import is disabled
+      const currentName = existingFile.basename;
+      const targetName = TextProcessor.sanitizeFilename(object.name || 'Untitled');
+      
+      if (currentName !== targetName) {
+        const parentPath = existingFile.parent?.path || '';
+        const newPath = parentPath ? `${parentPath}/${targetName}.md` : `${targetName}.md`;
+        
+        try {
+          // Check if target name already exists
+          const existingTarget = this.app.vault.getAbstractFileByPath(newPath);
+          if (existingTarget && existingTarget !== existingFile) {
+            this.logger.warn(`Cannot rename "${currentName}" to "${targetName}" - target name already exists`);
+            new Notice(`⚠️ Cannot rename "${currentName}" to "${targetName}" - target name already exists`, 6000);
+          } else {
+            await this.app.vault.rename(existingFile, newPath);
+            this.logger.info(`Renamed file from "${currentName}" to "${targetName}"`);
+            new Notice(`📝 Renamed "${currentName}" to "${targetName}"`, 4000);
+          }
+        } catch (error) {
+          this.logger.error(`Failed to rename file from "${currentName}" to "${targetName}": ${error.message}`);
+          new Notice(`⚠️ Failed to rename file: ${error.message}`, 6000);
+        }
+      }
     }
   }
 
