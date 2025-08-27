@@ -576,10 +576,14 @@ export class SyncService {
         this.logger.info('Converted wikilinks to Anytype object URLs for push to Anytype');
       }
 
+      // Get object type from frontmatter, default to 'page'
+      const typeKey = noteFrontmatter.type_key || 'page';
+      this.logger.debug(`Using object type: ${typeKey}`);
+
       // Create object in Anytype with properties
       const objectData: CreateObjectRequest = {
         name: file.basename,
-        type_key: 'page',
+        type_key: typeKey,
         body: processedMarkdown,
         properties: validatedProperties.length > 0 ? validatedProperties : undefined
       };
@@ -1019,4 +1023,79 @@ export class SyncService {
     }
   }
 
+  async reImportExistingNotes(spaceId: string, apiKey: string, options: Pick<SyncOptions, 'skipSystemProperties' | 'updateStatusCallback' | 'safeImport' | 'importFolder'> = {}): Promise<{ successful: number; failed: number; skipped: number }> {
+    const { skipSystemProperties = true, updateStatusCallback, safeImport = true, importFolder = '' } = options;
+    this.logger.info('Starting re-import of existing notes from Anytype');
+    
+    try {
+      // Validate authentication inputs
+      this.validateAuthInputs(spaceId, apiKey);
+      
+      // Get all notes with Anytype metadata
+      const notesWithMetadata = this.getNotesWithAnyTypeMetadata();
+      
+      if (notesWithMetadata.length === 0) {
+        this.logger.info('No notes with Anytype metadata found');
+        updateStatusCallback?.('No notes with Anytype metadata found');
+        return { successful: 0, failed: 0, skipped: 0 };
+      }
+      
+      this.logger.info(`Found ${notesWithMetadata.length} notes with Anytype metadata to re-import`);
+      updateStatusCallback?.(`Found ${notesWithMetadata.length} notes to re-import...`);
+      
+      let successful = 0;
+      let failed = 0;
+      let skipped = 0;
+      
+      // Process each note
+      for (let i = 0; i < notesWithMetadata.length; i++) {
+        const file = notesWithMetadata[i];
+        const progress = `(${i + 1}/${notesWithMetadata.length})`;
+        
+        try {
+          updateStatusCallback?.(`${progress} Re-importing "${file.basename}"...`);
+          this.logger.debug(`${progress} Processing note: ${file.basename}`);
+          
+          const frontmatter = this.app.metadataCache.getFileCache(file)?.frontmatter || {};
+          const objectId = frontmatter.id;
+          const noteSpaceId = frontmatter.space_id;
+          
+          // Validate that the space_id matches the current workspace
+          if (noteSpaceId !== spaceId) {
+            this.logger.warn(`${progress} Skipping ${file.basename}: belongs to different space (${noteSpaceId})`);
+            skipped++;
+            continue;
+          }
+          
+          // Fetch the object from Anytype
+          const anyTypeObject = await this.apiService.getObjectWithWikilinks(spaceId, apiKey, objectId);
+          
+          if (!anyTypeObject) {
+            this.logger.error(`${progress} Object ${objectId} not found in Anytype for ${file.basename}`);
+            failed++;
+            continue;
+          }
+          
+          // Import the object using existing logic
+          await this.createOrUpdateObsidianNote(anyTypeObject, { skipSystemProperties, safeImport, importFolder });
+          
+          this.logger.info(`${progress} Successfully re-imported ${file.basename} from Anytype object ${objectId}`);
+          successful++;
+          
+        } catch (error) {
+          this.logger.error(`${progress} Failed to re-import ${file.basename}: ${error.message}`);
+          failed++;
+        }
+      }
+      
+      this.logger.info(`Re-import completed: ${successful} successful, ${failed} failed, ${skipped} skipped`);
+      updateStatusCallback?.('Re-import completed');
+      
+      return { successful, failed, skipped };
+      
+    } catch (error) {
+      this.logger.error(`Re-import process failed: ${error.message}`);
+      throw error;
+    }
+  }
 }

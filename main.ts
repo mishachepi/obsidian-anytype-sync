@@ -164,6 +164,20 @@ export default class AnyTypeSyncPlugin extends Plugin {
         name: 'Import all objects from Anytype',
         callback: () => this.importFromAnyType()
       },
+      {
+        id: 're-import-existing-notes',
+        name: 'Re-import all existing notes from Anytype',
+        callback: () => this.reImportExistingNotes()
+      },
+      {
+        id: 'delete-current-note-from-anytype',
+        name: 'Delete current note from Anytype',
+        checkCallback: (checking: boolean) => {
+          const hasActiveNote = !!this.app.workspace.getActiveViewOfType(MarkdownView);
+          if (hasActiveNote && !checking) this.deleteCurrentNoteFromAnytype();
+          return hasActiveNote;
+        }
+      },
       
       // Sync Commands
       {
@@ -455,4 +469,34 @@ export default class AnyTypeSyncPlugin extends Plugin {
     }
   }
 
+  async reImportExistingNotes() {
+    if (!await this.ensureAuthenticated()) return;
+
+    try {
+      this.updateStatusBar('Re-importing existing notes...');
+      
+      const result = await this.syncService.reImportExistingNotes(
+        this.settings.spaceId,
+        this.settings.apiKey,
+        {
+          skipSystemProperties: this.settings.skipSystemProperties,
+          updateStatusCallback: (status: string) => this.updateStatusBar(status),
+          safeImport: this.settings.safeImport,
+          importFolder: this.settings.importFolder
+        }
+      );
+
+      this.syncStatus.lastSync = new Date();
+      this.updateStatusBar();
+      
+      const summaryMessage = `✅ Re-import complete: ${result.successful} successful, ${result.failed} failed, ${result.skipped} skipped`;
+      new Notice(summaryMessage, 12000);
+
+    } catch (error) {
+      this.logger.error(`Re-import existing notes failed: ${error.message}`);
+      const userMessage = this.getSafeErrorMessage(error.message, 'Re-import existing notes failed');
+      new Notice(userMessage);
+      this.updateStatusBar();
+    }
+  }
 }
