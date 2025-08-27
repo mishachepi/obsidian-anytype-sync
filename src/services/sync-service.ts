@@ -1098,4 +1098,116 @@ export class SyncService {
       throw error;
     }
   }
+
+  async deleteCurrentNote(spaceId: string, apiKey: string, options: Pick<SyncOptions, 'updateStatusCallback'> = {}): Promise<{ success: boolean; message: string }> {
+    const { updateStatusCallback } = options;
+    this.logger.info('Starting deletion of current note from Anytype');
+    
+    try {
+      // Validate authentication inputs
+      this.validateAuthInputs(spaceId, apiKey);
+      
+      // Get the active note
+      const activeNote = this.getActiveNoteFile();
+      this.logger.info(`Attempting to delete note: ${activeNote.basename}`);
+      
+      // Get frontmatter to extract Anytype ID and space_id
+      const frontmatter = this.app.metadataCache.getFileCache(activeNote)?.frontmatter || {};
+      
+      // Check if note has required Anytype metadata
+      const objectId = frontmatter.id;
+      const noteSpaceId = frontmatter.space_id;
+      
+      if (!objectId) {
+        return {
+          success: false,
+          message: 'Current note does not have an Anytype ID (missing "id" property in frontmatter)'
+        };
+      }
+      
+      if (!noteSpaceId) {
+        return {
+          success: false,
+          message: 'Current note does not have an Anytype space_id (missing "space_id" property in frontmatter)'
+        };
+      }
+      
+      // Validate that the space_id matches the current workspace
+      if (noteSpaceId !== spaceId) {
+        return {
+          success: false,
+          message: `Note belongs to different Anytype space (${noteSpaceId}) than current workspace (${spaceId})`
+        };
+      }
+      
+      updateStatusCallback?.(`Deleting object ${objectId} from Anytype...`);
+      
+      // Delete the object from Anytype
+      const deleted = await this.apiService.deleteObject(spaceId, apiKey, objectId);
+      
+      if (!deleted) {
+        return {
+          success: false,
+          message: `Failed to delete object ${objectId} from Anytype`
+        };
+      }
+      
+      updateStatusCallback?.('Removing Anytype metadata from note...');
+      
+      // Remove Anytype metadata from the note's frontmatter
+      const content = await this.app.vault.read(activeNote);
+      let updatedContent = content;
+      
+      if (content.startsWith('---')) {
+        const frontmatterEndIndex = content.indexOf('---', 3);
+        if (frontmatterEndIndex !== -1) {
+          const frontmatterText = content.substring(3, frontmatterEndIndex).trim();
+          const markdownContent = content.substring(frontmatterEndIndex + 3);
+          
+          try {
+            const parsedFrontmatter = this.parseFrontmatter(frontmatterText);
+            
+            // Remove Anytype-specific properties
+            delete parsedFrontmatter.id;
+            delete parsedFrontmatter.space_id;
+            delete parsedFrontmatter.type_key;
+            delete parsedFrontmatter.created_at;
+            delete parsedFrontmatter.updated_at;
+            
+            // Rebuild frontmatter without Anytype metadata
+            if (Object.keys(parsedFrontmatter).length > 0) {
+              const newFrontmatterText = Object.entries(parsedFrontmatter)
+                .map(([key, value]) => `${key}: ${this.formatYamlValue(value)}`)
+                .join('\n');
+              updatedContent = `---\n${newFrontmatterText}\n---${markdownContent}`;
+            } else {
+              // Remove frontmatter entirely if empty
+              updatedContent = markdownContent.trim();
+            }
+          } catch (error) {
+            this.logger.warn(`Failed to parse frontmatter for cleanup: ${error.message}`);
+            // Keep the original content if parsing fails
+          }
+        }
+      }
+      
+      // Update the note content
+      await this.app.vault.process(activeNote, () => updatedContent);
+      
+      this.logger.info(`Successfully deleted note "${activeNote.basename}" from Anytype and cleaned up metadata`);
+      
+      return {
+        success: true,
+        message: `Successfully deleted "${activeNote.basename}" from Anytype and removed metadata`
+      };
+      
+    } catch (error) {
+      this.logger.error(`Failed to delete current note: ${error.message}`);
+      return {
+        success: false,
+        message: `Delete failed: ${error.message}`
+      };
+    }
+  }
+
 }

@@ -699,6 +699,42 @@ export class AnyTypeApiService {
     }
   }
 
+  async deleteObject(spaceId: string, apiKey: string, objectId: string): Promise<boolean> {
+    try {
+      this.validateBasicInputs(spaceId, apiKey);
+      if (!objectId) throw new Error('Object ID required');
+
+      this.logger.info(`Deleting object ${objectId} from space ${spaceId}`);
+      
+      const headers = this.createRequestHeaders(apiKey);
+
+      this.logger.time('Delete Object');
+
+      const response = await requestUrl({
+        url: `${this.baseUrl}/v1/spaces/${spaceId}/objects/${objectId}`,
+        method: 'DELETE',
+        headers,
+        throw: false
+      });
+
+      this.logger.timeEnd('Delete Object');
+      this.logger.debug(`Delete object response status: ${response.status}`);
+
+      if (response.status >= 400) {
+        const errorText = response.text || 'Unknown error';
+        this.logger.error(`Delete object API call failed (${response.status}): ${errorText}`);
+        throw new Error(`Failed to delete object (${response.status}): ${errorText}`);
+      }
+
+      this.logger.info(`Successfully deleted object ${objectId} from space ${spaceId}`);
+      return true;
+
+    } catch (error) {
+      this.logger.error(`Failed to delete object ${objectId} in space ${spaceId}: ${error.message}`);
+      throw error;
+    }
+  }
+
   async updateType(spaceId: string, apiKey: string, typeId: string, typeData: { key: string; name?: string; plural_name?: string }): Promise<boolean> {
     try {
       // Basic validation
