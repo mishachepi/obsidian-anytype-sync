@@ -8,6 +8,7 @@ export interface AnyTypeSettings {
   // UI Control Flags
   showSyncButton: boolean;
   showImportButton: boolean;
+  hideQuickSetup: boolean;
   // Content Control Flag
   skipSystemProperties: boolean;
   // Object Types to sync
@@ -29,6 +30,7 @@ export const DEFAULT_SETTINGS: AnyTypeSettings = {
   isAuthenticated: false,
   showSyncButton: true,
   showImportButton: false,
+  hideQuickSetup: false,
   skipSystemProperties: true,
   syncObjectTypes: ['page'],
   resolveObjectLinks: true,

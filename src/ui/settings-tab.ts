@@ -37,11 +37,6 @@ export class AnyTypeSettingsTab extends PluginSettingTab {
   display(): void {
     const { containerEl } = this;
     containerEl.empty();
-
-    containerEl.createEl('h2', { text: 'Anytype Sync Settings' });
-
-    // Setup instructions at the top
-    this.renderSetupInstructions(containerEl);
     
     // Essential setup only
     this.renderSetup(containerEl);
@@ -74,27 +69,19 @@ export class AnyTypeSettingsTab extends PluginSettingTab {
   }
 
   private renderSetupInstructions(containerEl: HTMLElement): void {
-    const instructionsEl = containerEl.createEl('div', { cls: 'setting-item-description' });
-    instructionsEl.style.cssText = `
-      margin-bottom: 20px;
-      padding: 15px;
-      background: var(--background-secondary);
-      border-radius: 8px;
-      border-left: 4px solid var(--interactive-accent);
+    const instructionsPanel = containerEl.createEl('div', { cls: 'setting-item-description' });
+    instructionsPanel.style.cssText = `
+      margin-bottom: 16px;
     `;
     
-    instructionsEl.createEl('h4', { text: 'Quick Setup Instructions:' });
-    
-    const instructionsList = instructionsEl.createEl('ol');
-    instructionsList.style.cssText = 'margin: 10px 0; padding-left: 20px;';
-    
-    instructionsList.createEl('li', { text: '🔗 Connect: Make sure Anytype Desktop is running and click Connect' });
-    instructionsList.createEl('li', { text: '🌐 Select Space: Choose your Anytype workspace' });
-    instructionsList.createEl('li', { text: '📋 Select Types: Choose which object types to work with (pages, tasks, etc.)' });
-
-    // Show current status
-    const statusEl = instructionsEl.createEl('p');
-    statusEl.style.cssText = 'margin-top: 15px; font-weight: bold;';
+    // Status display (always visible)
+    const statusEl = instructionsPanel.createEl('div');
+    statusEl.style.cssText = `
+      margin-bottom: 8px;
+      font-weight: bold;
+      font-size: 12px;
+      color: var(--text-normal);
+    `;
     
     const connectionStatus = this.plugin.settings.isAuthenticated ? 
       (this.plugin.isConnected ? '✅ Connected' : '🔐 Authenticated') : 
@@ -103,10 +90,92 @@ export class AnyTypeSettingsTab extends PluginSettingTab {
     const typesStatus = this.plugin.settings.syncObjectTypes.length > 0 ? '✅ Types Selected' : '❌ Types Needed';
     
     statusEl.innerHTML = `Status: ${connectionStatus} • ${spaceStatus} • ${typesStatus}`;
+
+    // Collapsible instructions panel
+    const collapsiblePanel = instructionsPanel.createEl('div');
+    collapsiblePanel.style.cssText = `
+      background: var(--background-secondary);
+      border-radius: 6px;
+      border: 1px solid var(--background-modifier-border);
+      overflow: hidden;
+    `;
+    
+    // Header with toggle
+    const headerEl = collapsiblePanel.createEl('div');
+    headerEl.style.cssText = `
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 10px;
+      cursor: pointer;
+      user-select: none;
+      transition: background-color 0.2s;
+    `;
+    
+    const titleEl = headerEl.createEl('span', { text: 'Quick Setup' });
+    titleEl.style.cssText = 'margin: 0; font-weight: 500; font-size: 12px;';
+    
+    const arrowEl = headerEl.createEl('span');
+    arrowEl.style.cssText = `
+      font-size: 8px;
+      transition: transform 0.2s;
+      color: var(--text-muted);
+    `;
+    
+    // Content area
+    const contentEl = collapsiblePanel.createEl('div');
+    contentEl.style.cssText = `
+      padding: 0 10px 8px 10px;
+      transition: max-height 0.3s ease, opacity 0.2s ease;
+      overflow: hidden;
+    `;
+    
+    const instructionsList = contentEl.createEl('ol');
+    instructionsList.style.cssText = 'margin: 8px 0; padding-left: 16px; font-size: 13px;';
+    
+    instructionsList.createEl('li', { text: '🔗 Connect: Make sure Anytype Desktop is running and click Connect' });
+    instructionsList.createEl('li', { text: '🌐 Select Space: Choose your Anytype workspace' });
+    instructionsList.createEl('li', { text: '📋 Select Types: Choose which object types to work with (pages, tasks, etc.)' });
+    
+    // Toggle functionality
+    const updateToggleState = (isExpanded: boolean) => {
+      arrowEl.textContent = isExpanded ? '▼' : '▶';
+      if (isExpanded) {
+        contentEl.style.maxHeight = contentEl.scrollHeight + 'px';
+        contentEl.style.opacity = '1';
+      } else {
+        contentEl.style.maxHeight = '0';
+        contentEl.style.opacity = '0';
+      }
+      this.plugin.settings.hideQuickSetup = !isExpanded;
+      this.plugin.saveSettings();
+    };
+    
+    // Initial state based on setting
+    const isExpanded = !this.plugin.settings.hideQuickSetup;
+    updateToggleState(isExpanded);
+    
+    // Click handler
+    headerEl.addEventListener('click', () => {
+      const currentlyExpanded = !this.plugin.settings.hideQuickSetup;
+      updateToggleState(!currentlyExpanded);
+    });
+    
+    // Hover effect
+    headerEl.addEventListener('mouseenter', () => {
+      headerEl.style.backgroundColor = 'var(--background-modifier-hover)';
+    });
+    
+    headerEl.addEventListener('mouseleave', () => {
+      headerEl.style.backgroundColor = '';
+    });
   }
 
   private renderSetup(containerEl: HTMLElement): void {
     containerEl.createEl('h3', { text: 'Setup' });
+
+    // Quick setup instructions right after the Setup title
+    this.renderSetupInstructions(containerEl);
 
     this.renderAuthentication(containerEl);
     this.renderSpaceSelection(containerEl);
