@@ -577,7 +577,7 @@ export class SyncService {
       }
 
       // Get object type from frontmatter, default to 'page'
-      const typeKey = noteFrontmatter.type_key || 'page';
+      const typeKey = (noteFrontmatter as any).type_key || 'page';
       this.logger.debug(`Using object type: ${typeKey}`);
 
       // Create object in Anytype with properties
@@ -1176,10 +1176,13 @@ export class SyncService {
             
             // Rebuild frontmatter without Anytype metadata
             if (Object.keys(parsedFrontmatter).length > 0) {
-              const newFrontmatterText = Object.entries(parsedFrontmatter)
-                .map(([key, value]) => `${key}: ${this.formatYamlValue(value)}`)
-                .join('\n');
-              updatedContent = `---\n${newFrontmatterText}\n---${markdownContent}`;
+              let newFrontmatterText = '';
+              for (const [key, value] of Object.entries(parsedFrontmatter)) {
+                if (value !== null && value !== undefined) {
+                  newFrontmatterText += TextProcessor.formatYamlLine(key, value);
+                }
+              }
+              updatedContent = `---\n${newFrontmatterText}---${markdownContent}`;
             } else {
               // Remove frontmatter entirely if empty
               updatedContent = markdownContent.trim();
