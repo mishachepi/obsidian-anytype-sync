@@ -203,6 +203,17 @@ Optimized for maintainable, scalable code with knowledge graph preservation:
 
 ## Issues
 
+  📊 Impact Assessment
+
+  | Issue             | Lines Affected   | Maintenance Impact | Bug Risk |
+  |-------------------|------------------|--------------------|----------|
+  | Large files       | 3,400+           | 🔴 High            | 🔴 High  |
+  | Inline CSS        | 30+              | 🟡 Medium          | 🟢 Low   |
+  | Error handling    | 54+ catch blocks | 🟡 Medium          | 🔴 High  |
+  | Type safety       | 29+ instances    | 🔴 High            | 🔴 High  |
+  | Hardcoded strings | 51+ messages     | 🟡 Medium          | 🟢 Low   |
+
+
 ### WikilinkResolver Cache
 - Location: src/utils/wikilink-resolver.ts:11
 - Type: Map<string, { objectId: string; spaceId: string }>
