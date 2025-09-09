@@ -79,7 +79,10 @@ export class SyncService {
         let includedProperties = 0;
         let skippedSystemProperties = 0;
 
-        for (const [key, value] of Object.entries(object.properties)) {
+        // Sort properties alphabetically for consistent order
+        const sortedPropertyKeys = Object.keys(object.properties).sort();
+        for (const key of sortedPropertyKeys) {
+          const value = object.properties[key];
           // Skip system properties first (if setting is enabled)
           if (skipSystemProperties && this.isSystemProperty(key)) {
             skippedSystemProperties++;
@@ -104,7 +107,10 @@ export class SyncService {
       // Add preserved custom Obsidian properties (properties that don't exist in Anytype)
       if (preservedProperties && typeof preservedProperties === 'object') {
         let preservedCount = 0;
-        for (const [key, value] of Object.entries(preservedProperties)) {
+        // Sort preserved properties alphabetically for consistent order
+        const sortedPreservedKeys = Object.keys(preservedProperties).sort();
+        for (const key of sortedPreservedKeys) {
+          const value = preservedProperties[key];
           // Only preserve properties that:
           // 1. Don't exist in Anytype object properties
           // 2. Are not core Anytype fields (id, space_id, type_key, name)
@@ -129,9 +135,17 @@ export class SyncService {
 
       this.logger.debug(`Generated frontmatter for object ${object.id}`);
 
-      // Generate YAML string safely
+      // Generate YAML string safely with consistent order
       let yamlContent = '---\n';
-      for (const [key, value] of Object.entries(frontmatter)) {
+      
+      // Sort all frontmatter keys alphabetically for consistent order
+      // BUT keep core properties (id, space_id, type_key, name) at the top
+      const coreKeys = ['id', 'space_id', 'type_key', 'name'];
+      const otherKeys = Object.keys(frontmatter).filter(key => !coreKeys.includes(key)).sort();
+      const orderedKeys = [...coreKeys.filter(key => key in frontmatter), ...otherKeys];
+      
+      for (const key of orderedKeys) {
+        const value = frontmatter[key];
         if (value !== null && value !== undefined) {
           const yamlLine = TextProcessor.formatYamlLine(key, value);
           yamlContent += yamlLine;
