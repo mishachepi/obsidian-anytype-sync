@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-anytype-sync",
-	"version": "0.0.2",
+	"version": "0.0.3",
 	"description": "Comprehensive bidirectional sync between Obsidian and Anytype with intelligent wikilink conversion, property management, and knowledge graph preservation",
 	"main": "main.js",
 	"scripts": {
