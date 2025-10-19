@@ -253,3 +253,38 @@ Optimized for maintainable, scalable code with knowledge graph preservation:
   characters...`, 8000);
   // Scattered throughout codebase
   Fix: Constants file for all user-facing strings
+
+
+## Current Property Support Status
+
+  ✅ Working Properties:
+
+  1. text - Simple strings ✅
+  2. number - Numeric values ✅
+  3. checkbox - Boolean values ✅
+  4. date - ISO date strings ✅
+  5. url - URL strings ✅
+  6. email - Email strings ✅
+  7. phone - Phone strings ✅
+
+  ❌ NOT Working Properties:
+
+  1. select - Single tag selection ❌
+  2. multi_select - Multiple tag selection ❌
+  3. files - File attachments ❌
+  4. objects - Object relationships ❌
+
+  🔍 The Issues:
+
+⏺ Problem 1: Tag ID vs Tag Name Mismatch
+  - When we get data FROM Anytype: { select: { id: "tag_123", name:
+  "Important" } }
+  - When we send data TO Anytype: We need just the tag_id: { select:
+  "tag_123" }
+  - But our current code tries to send the tag name: { select: "Important" }
+
+  Problem 2: No Tag Resolution System
+  - We need to resolve tag names to tag IDs when syncing FROM Obsidian TO
+  Anytype
+  - We need to fetch available tags for each property to do this mapping
+

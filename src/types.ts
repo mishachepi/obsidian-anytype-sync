@@ -49,7 +49,7 @@ export interface AnyTypeObject {
   type_key: string;
   markdown?: string;
   space_id: string;
-  properties: Record<string, string | number | boolean | null>;
+  properties: Record<string, string | number | boolean | string[] | null>;
 }
 
 export interface CreateObjectRequest {

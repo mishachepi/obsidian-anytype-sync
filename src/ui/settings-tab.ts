@@ -737,6 +737,7 @@ export class AnyTypeSettingsTab extends PluginSettingTab {
           
           this.showPropertyKeyUpdateModal();
         }));
+
   }
 
   private async loadObjectTypesForSpace(): Promise<void> {

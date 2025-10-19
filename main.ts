@@ -11,6 +11,7 @@ import {
   AnyTypeAuthService,
   AnyTypeSettingsTab
 } from './src';
+import { ApiServiceFactory } from './src/services/api-factory';
 
 export default class AnyTypeSyncPlugin extends Plugin {
   settings: AnyTypeSettings;
@@ -34,7 +35,7 @@ export default class AnyTypeSyncPlugin extends Plugin {
     
     // Initialize services
     this.authService = new AnyTypeAuthService();
-    this.apiService = new AnyTypeApiService(this.logger);
+    this.apiService = ApiServiceFactory.create(this.settings, this.logger);
     this.syncService = new SyncService(this.app, this.apiService, this.logger);
     
     // Initialize sync status
@@ -76,6 +77,11 @@ export default class AnyTypeSyncPlugin extends Plugin {
     // Clean up caches to prevent memory leaks
     if (this.syncService) {
       this.syncService.cleanup();
+    }
+    
+    // Clean up API service resources
+    if (this.apiService) {
+      ApiServiceFactory.cleanup(this.apiService);
     }
     
     this.updateStatusBar('Disconnected');
