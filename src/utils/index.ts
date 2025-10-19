@@ -18,3 +18,6 @@ export { TextProcessor } from './text-processor';
 
 // Wikilink Resolution
 export { WikilinkResolver } from './wikilink-resolver';
+
+// Tag Resolution
+export { TagResolver } from './tag-resolver';

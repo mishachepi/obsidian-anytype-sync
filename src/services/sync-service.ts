@@ -1,6 +1,6 @@
 import { App, TFile, MarkdownView, normalizePath, Notice } from 'obsidian';
 import { AnyTypeObject, CreateObjectRequest, SyncResult, PropertyValue, SyncOptions, NoteCreationOptions, PropertyProcessingOptions } from '../types';
-import { Logger, Validation, PropertyProcessor, TextProcessor, WikilinkResolver } from '../utils';
+import { Logger, Validation, PropertyProcessor, TextProcessor, WikilinkResolver, TagResolver } from '../utils';
 import { AnyTypeApiService } from './api-service';
 import { MAX_NOTE_SIZE } from '../constants';
 import { FRONTMATTER_SKIP_PROPERTIES } from '../constants/property-filters';
@@ -11,12 +11,14 @@ export class SyncService {
   private logger: Logger;
   private propertyProcessor: PropertyProcessor;
   private wikilinkResolver: WikilinkResolver;
+  private tagResolver: TagResolver;
 
   constructor(app: App, apiService: AnyTypeApiService, logger: Logger) {
     this.app = app;
     this.apiService = apiService;
     this.logger = logger;
-    this.propertyProcessor = new PropertyProcessor(logger);
+    this.tagResolver = new TagResolver(logger);
+    this.propertyProcessor = new PropertyProcessor(logger, this.tagResolver);
     this.wikilinkResolver = new WikilinkResolver(app, logger);
   }
 
@@ -26,6 +28,98 @@ export class SyncService {
       const frontmatter = this.app.metadataCache.getFileCache(f)?.frontmatter || {};
       return frontmatter.id === anyTypeId;
     }) || null;
+  }
+
+  /**
+   * Enhance object properties with tag name resolution
+   * Post-processes select/multi_select properties to resolve IDs to names
+   */
+  private enhanceObjectWithTagResolution(object: AnyTypeObject, availableProperties: any[]): AnyTypeObject {
+    if (!object.properties || Object.keys(object.properties).length === 0) {
+      return object;
+    }
+
+    const propertyMap = new Map<string, any>();
+    for (const prop of availableProperties) {
+      propertyMap.set(prop.key, prop);
+    }
+
+    const enhancedProperties = { ...object.properties };
+    let enhancedCount = 0;
+
+    for (const [key, value] of Object.entries(object.properties)) {
+      const propertyDef = propertyMap.get(key);
+      if (!propertyDef) continue;
+
+      if (propertyDef.format === 'select' && typeof value === 'string' && this.tagResolver.areTagsCached(propertyDef.id)) {
+        const tagName = this.tagResolver.resolveTagIdToName(propertyDef.id, value);
+        if (tagName && tagName !== value) {
+          enhancedProperties[key] = tagName;
+          enhancedCount++;
+          this.logger.debug(`Enhanced select property "${key}": "${value}" → "${tagName}"`);
+        }
+      } else if (propertyDef.format === 'multi_select' && Array.isArray(value) && this.tagResolver.areTagsCached(propertyDef.id)) {
+        const enhancedTags = value.map(tagId => {
+          if (typeof tagId === 'string') {
+            const tagName = this.tagResolver.resolveTagIdToName(propertyDef.id, tagId);
+            return tagName || tagId;
+          }
+          return tagId;
+        });
+        
+        if (enhancedTags.some((tag, index) => tag !== value[index])) {
+          enhancedProperties[key] = enhancedTags;
+          enhancedCount++;
+          this.logger.debug(`Enhanced multi_select property "${key}": resolved ${enhancedTags.length} tags`);
+        }
+      }
+    }
+
+    if (enhancedCount > 0) {
+      this.logger.info(`Enhanced ${enhancedCount} tag properties in object ${object.id}`);
+      return {
+        ...object,
+        properties: enhancedProperties
+      };
+    }
+
+    return object;
+  }
+
+  /**
+   * Load tags for select and multi_select properties
+   */
+  private async loadTagsForSelectProperties(spaceId: string, apiKey: string, properties: any[]): Promise<void> {
+    const selectProperties = properties.filter(p => p.format === 'select' || p.format === 'multi_select');
+    
+    if (selectProperties.length === 0) {
+      this.logger.debug('No select/multi_select properties found');
+      return;
+    }
+
+    this.logger.info(`Loading tags for ${selectProperties.length} select/multi_select properties`);
+
+    for (const property of selectProperties) {
+      try {
+        // Check if tags are already cached
+        if (this.tagResolver.areTagsCached(property.id)) {
+          this.logger.debug(`Tags already cached for property ${property.key} (${property.id})`);
+          continue;
+        }
+
+        // Fetch tags for this property
+        const tags = await this.apiService.listTags(spaceId, apiKey, property.id);
+        this.tagResolver.setTagsForProperty(property.id, tags);
+        
+        this.logger.debug(`Loaded ${tags.length} tags for property ${property.key} (${property.id})`);
+      } catch (error) {
+        this.logger.error(`Failed to load tags for property ${property.key}: ${error.message}`);
+        // Continue with other properties even if one fails
+      }
+    }
+
+    const stats = this.tagResolver.getCacheStats();
+    this.logger.info(`Tag cache loaded: ${stats.properties} properties with ${stats.totalTags} total tags`);
   }
 
 
@@ -536,11 +630,19 @@ export class SyncService {
       const availableProperties = await this.apiService.listProperties(spaceId, apiKey);
       this.logger.debug(`Found ${availableProperties.length} available properties in space`);
 
+      // Load tags for select/multi_select properties
+      await this.loadTagsForSelectProperties(spaceId, apiKey, availableProperties);
+      
+      // Debug: Log tag cache status
+      const tagStats = this.tagResolver.getCacheStats();
+      this.logger.debug(`Tag cache status: ${tagStats.properties} properties with ${tagStats.totalTags} total tags cached`);
+
       updateStatusCallback?.('Creating object with properties in Anytype...');
 
       // Extract content without existing frontmatter if present
       let markdownContent = content;
       let noteFrontmatter = {};
+      let customObsidianProperties = {};
       
       if (content.startsWith('---')) {
         const frontmatterEndIndex = content.indexOf('---', 3);
@@ -552,6 +654,9 @@ export class SyncService {
           try {
             noteFrontmatter = this.parseFrontmatter(frontmatterText);
             this.logger.debug(`Parsed frontmatter with ${Object.keys(noteFrontmatter).length} properties`);
+            
+            // Extract custom Obsidian properties that should be preserved
+            customObsidianProperties = this.extractCustomObsidianProperties(noteFrontmatter, availableProperties);
           } catch (error) {
             this.logger.warn(`Failed to parse frontmatter: ${error.message}`);
           }
@@ -606,13 +711,17 @@ export class SyncService {
       
       // Update the note's frontmatter with Anytype information and all properties
       updateStatusCallback?.('Updating note frontmatter with object data...');
-      const newFrontmatter = this.generateYamlFrontmatter(createdObject, skipSystemProperties);
+      const newFrontmatter = this.generateYamlFrontmatter(createdObject, skipSystemProperties, customObsidianProperties);
       
       // Log frontmatter generation details
       const propertyCount = Object.keys(createdObject.properties || {}).length;
-      this.logger.debug(`Generated frontmatter with ${propertyCount} properties`);
+      const customCount = Object.keys(customObsidianProperties).length;
+      this.logger.debug(`Generated frontmatter with ${propertyCount} Anytype properties and ${customCount} preserved Obsidian properties`);
       if (propertyCount > 0) {
-        this.logger.debug('Properties in frontmatter:', Object.keys(createdObject.properties));
+        this.logger.debug('Anytype properties in frontmatter:', Object.keys(createdObject.properties));
+      }
+      if (customCount > 0) {
+        this.logger.debug('Preserved Obsidian properties:', Object.keys(customObsidianProperties));
       }
       
       const newContent = newFrontmatter + markdownContent;
@@ -662,6 +771,9 @@ export class SyncService {
       const availableProperties = await this.apiService.listProperties(targetSpaceId, apiKey);
       this.logger.debug(`Found ${availableProperties.length} available properties for validation`);
 
+      // Load tags for select/multi_select properties
+      await this.loadTagsForSelectProperties(targetSpaceId, apiKey, availableProperties);
+
       // Extract custom Obsidian properties before sync to preserve them
       const customObsidianProperties = this.extractCustomObsidianProperties(frontmatter, availableProperties);
 
@@ -690,15 +802,18 @@ export class SyncService {
       this.logger.info(`Fetching complete updated object with wikilink resolution from Anytype`);
       const completeUpdatedObject = await this.apiService.getObjectWithWikilinks(targetSpaceId, apiKey, objectId);
       
+      // Enhance object with tag name resolution using already loaded properties and tags
+      const enhancedCompleteObject = this.enhanceObjectWithTagResolution(completeUpdatedObject, availableProperties);
+      
       // Ensure name consistency in the complete object as well
-      if (completeUpdatedObject.name !== file.basename) {
-        this.logger.warn(`Complete object name "${completeUpdatedObject.name}" doesn't match file basename "${file.basename}", correcting`);
-        completeUpdatedObject.name = file.basename;
+      if (enhancedCompleteObject.name !== file.basename) {
+        this.logger.warn(`Complete object name "${enhancedCompleteObject.name}" doesn't match file basename "${file.basename}", correcting`);
+        enhancedCompleteObject.name = file.basename;
       }
       
       // Update note frontmatter with fresh properties from Anytype response AND preserved custom properties
       this.logger.info(`Updating note frontmatter with refreshed properties, wikilinks from Anytype, and preserved custom properties`);
-      const updatedFrontmatter = this.generateYamlFrontmatter(completeUpdatedObject, skipSystemProperties, customObsidianProperties);
+      const updatedFrontmatter = this.generateYamlFrontmatter(enhancedCompleteObject, skipSystemProperties, customObsidianProperties);
       
       // Read current content and replace frontmatter
       const currentContent = await this.app.vault.read(file);
@@ -1015,17 +1130,24 @@ export class SyncService {
           message: `Object ${objectId} not found in Anytype space`
         };
       }
+
+      // Get available properties and load tags for enhanced processing
+      const availableProperties = await this.apiService.listProperties(spaceId, apiKey);
+      await this.loadTagsForSelectProperties(spaceId, apiKey, availableProperties);
       
-      updateStatusCallback?.(`Importing "${anyTypeObject.name}" to Obsidian...`);
+      // Enhance object with tag name resolution
+      const enhancedObject = this.enhanceObjectWithTagResolution(anyTypeObject, availableProperties);
+      
+      updateStatusCallback?.(`Importing "${enhancedObject.name}" to Obsidian...`);
       
       // Import the object using existing logic (note: propertyPrecedence currently handled in existing logic)
-      await this.createOrUpdateObsidianNote(anyTypeObject, { skipSystemProperties, safeImport, importFolder });
+      await this.createOrUpdateObsidianNote(enhancedObject, { skipSystemProperties, safeImport, importFolder });
       
       this.logger.info(`Successfully imported current note "${activeNote.basename}" from Anytype object ${objectId}`);
       
       return {
         success: true,
-        message: `Successfully imported "${anyTypeObject.name}" from Anytype`
+        message: `Successfully imported "${enhancedObject.name}" from Anytype`
       };
       
     } catch (error) {
@@ -1056,6 +1178,11 @@ export class SyncService {
       
       this.logger.info(`Found ${notesWithMetadata.length} notes with Anytype metadata to re-import`);
       updateStatusCallback?.(`Found ${notesWithMetadata.length} notes to re-import...`);
+      
+      // Load properties and tags once for the entire batch operation
+      updateStatusCallback?.('Loading properties and tags for enhanced processing...');
+      const availableProperties = await this.apiService.listProperties(spaceId, apiKey);
+      await this.loadTagsForSelectProperties(spaceId, apiKey, availableProperties);
       
       let successful = 0;
       let failed = 0;
@@ -1089,9 +1216,12 @@ export class SyncService {
             failed++;
             continue;
           }
+
+          // Enhance object with tag name resolution
+          const enhancedObject = this.enhanceObjectWithTagResolution(anyTypeObject, availableProperties);
           
           // Import the object using existing logic
-          await this.createOrUpdateObsidianNote(anyTypeObject, { skipSystemProperties, safeImport, importFolder });
+          await this.createOrUpdateObsidianNote(enhancedObject, { skipSystemProperties, safeImport, importFolder });
           
           this.logger.info(`${progress} Successfully re-imported ${file.basename} from Anytype object ${objectId}`);
           successful++;

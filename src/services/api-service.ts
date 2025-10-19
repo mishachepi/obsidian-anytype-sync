@@ -870,6 +870,49 @@ export class AnyTypeApiService {
     }
   }
 
+  async listTags(spaceId: string, apiKey: string, propertyId: string): Promise<{ id: string; name: string; color?: string }[]> {
+    try {
+      this.validateBasicInputs(spaceId, apiKey);
+      if (!propertyId) throw new Error('Property ID required');
+
+      this.logger.info(`Fetching tags for property ${propertyId} in space ${spaceId}`);
+      
+      const headers = this.createRequestHeaders(apiKey);
+
+      this.logger.time('List Tags');
+      
+      const response = await requestUrl({
+        url: `${this.baseUrl}/v1/spaces/${spaceId}/properties/${propertyId}/tags`,
+        method: 'GET',
+        headers,
+        throw: false
+      });
+
+      this.logger.timeEnd('List Tags');
+      this.logger.debug(`List tags response status: ${response.status}`);
+      
+      if (response.status >= 400) {
+        this.logger.error(`List tags API call failed (${response.status}): ${response.text}`);
+        throw new Error(`Failed to list tags (${response.status}): ${response.text || 'Unknown error'}`);
+      }
+
+      const result = response.json;
+      if (!result || !result.data) {
+        this.logger.warn('Invalid response format from list tags API');
+        return [];
+      }
+
+      const tags = result.data;
+      this.logger.info(`Successfully retrieved ${tags.length} tags for property ${propertyId}`);
+      
+      return tags;
+
+    } catch (error) {
+      this.logger.error(`Failed to list tags for property ${propertyId}: ${error.message}`);
+      throw error;
+    }
+  }
+
   // Public method to get object with wikilink resolution (same as import)
   async getObjectWithWikilinks(spaceId: string, apiKey: string, objectId: string): Promise<AnyTypeObject> {
     this.validateBasicInputs(spaceId, apiKey);

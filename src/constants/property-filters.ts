@@ -40,10 +40,22 @@ export const READ_ONLY_PROPERTIES = [
 ] as const;
 
 /**
- * Property formats that are currently allowed for safe API operations
- * Limited to prevent API errors until full property type support is implemented
+ * Property formats that are supported by the universal property sync mechanism
+ * All Anytype property types are now supported with proper type conversion
  */
-export const ALLOWED_PROPERTY_FORMATS = ['text', 'number'] as const;
+export const ALLOWED_PROPERTY_FORMATS = [
+  'text', 
+  'number', 
+  'checkbox', 
+  'date', 
+  'url', 
+  'email', 
+  'phone', 
+  'select', 
+  'multi_select', 
+  'files', 
+  'objects'
+] as const;
 
 /**
  * System properties to skip specifically for frontmatter generation
