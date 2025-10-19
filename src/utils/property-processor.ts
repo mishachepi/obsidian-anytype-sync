@@ -156,8 +156,7 @@ export class PropertyProcessor {
         const inferredFormat = this.inferPropertyFormat(key, value);
         if (inferredFormat) {
           this.logger.info(`Property "${key}" not found in Anytype, inferring format as "${inferredFormat}" and attempting sync`);
-          // Create a mock property definition for processing
-          const mockPropertyDef = { key, format: inferredFormat, id: null };
+          // Create a mock property definition for processing (used for logging context)
           const formattedProperty = this.formatForAPI(key, value, inferredFormat, undefined);
           if (formattedProperty) {
             extractedProperties.push(formattedProperty);
@@ -304,7 +303,7 @@ export class PropertyProcessor {
       if (value.includes('@') && value.includes('.')) {
         return 'email';
       }
-      if (value.match(/^[\d\s\-\+\(\)]+$/)) {
+      if (value.match(/^[\d\s\-+()]+$/)) {
         return 'phone';
       }
       // Default to text for strings

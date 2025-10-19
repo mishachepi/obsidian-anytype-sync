@@ -39,6 +39,15 @@ export default [
         confirm: "readonly",
         alert: "readonly",
         prompt: "readonly",
+        // Fetch API globals
+        fetch: "readonly",
+        Request: "readonly",
+        Response: "readonly",
+        Headers: "readonly",
+        FormData: "readonly",
+        URL: "readonly",
+        RequestInfo: "readonly",
+        RequestInit: "readonly",
       },
     },
     plugins: {
@@ -53,6 +62,6 @@ export default [
     },
   },
   {
-    ignores: ["node_modules/**", "*.d.ts", "main.js"],
+    ignores: ["node_modules/**", "*.d.ts", "main.js", "tests/**"],
   },
 ];
