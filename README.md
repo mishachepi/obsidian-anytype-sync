@@ -8,7 +8,7 @@ This plugin enables seamless integration between Obsidian and Anytype, allowing 
 
 **Note**: This is like a pre-release version that ~~may~~ definitely contains some bugs and incomplete functionality. Be carefull with your data.
 
-**Developed with ClaudeCode.**
+**Developed with ClaudeCode. Mostly ClaudeCode**
 
 ### Key Features
 
@@ -26,8 +26,8 @@ You can process a single note or your entire vault. Choose which types to sync a
 - Improve smart syncing: Sync markdown note content (blocked by: https://github.com/anyproto/anytype-api/issues/5)
 - Reduce codebase complexity
 - Add automatic background syncing
-- Support all property types (currently only text and numbers sync correctly)
-- change type of Anytype object by syncing change type_key in Obsidian and sync
+- Support all property types (for now Multiselect doesn't work)
+- Change type of Anytype object by syncing change type_key in Obsidian and sync
 - Add better multi-space support
 - Sync only selected properties (specify it in settings)
 - Security audit (seeking someone with good typescript expertise)
@@ -72,6 +72,12 @@ You can process a single note or your entire vault. Choose which types to sync a
 - **Safe Import**: Rewrite existing note content in Obsidian if disabled
 - **Skip system property**: Hide last_modified_by last_opened_date creator created_date
 
+## Limitations
+
+- **Export of markdows body to Anytype doesn't work for existing notes** - limitation of Anytype API
+- **Multiselect property sync doesn't work**
+- **Images import is incorrect** - now images imported as a link to anytype file, **to fix it you can process all images with "Awesome Images" plugin**
+
 
 ## Privacy & Security
 
@@ -90,8 +96,6 @@ You can process a single note or your entire vault. Choose which types to sync a
 
 - **Issues**: Report bugs and request features on GitHub
 - **Documentation**: See CLAUDE.md for technical details
-
-I am open to communication and ready to contribute, feel free to create Issues and contact me. 
 
 ## Useful links
 
